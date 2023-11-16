@@ -58,7 +58,14 @@ UART_HandleTypeDef huart4;
 /* USER CODE BEGIN PV */
 #define HARDWARE_VER "1.0.0"
 
+uint8_t BOARD_NUMBER = 2;
+uint8_t spi3_buf[2] = {0};
 uint32_t frame_rate=1000; //delay time (ms)
+uint8_t frame_buf_tmp[6400]={0};
+uint8_t frame_buf_0[6400]={0};
+uint8_t frame_buf_1[6400]={0};
+uint8_t play_mode=0;  //0=Static display, 1=Dynamic display
+uint8_t static_flag=0;  //0=buffer_0, 1=buffer_1
 uint8_t image_80x80_rgb888[19200] =
 	{
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -884,7 +891,6 @@ static void MX_LTDC_Init(void);
 /* USER CODE BEGIN PFP */
 static void mipi_config(void);
 static void SPI2Flash(void);
-static void SPI2PC(void);
 static void SPI_master2slave(char * buf, char * frame_buf);
 static void Write_Registers_data(void);
 static void I2C_Control_Voltage(void);
@@ -942,6 +948,24 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  int frame_buf_count = 0;
+
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4) == GPIO_PIN_SET) //switch = 00
+	{
+		BOARD_NUMBER = 2;
+	}
+	else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4) == GPIO_PIN_RESET) //switch = 01
+	{
+		BOARD_NUMBER = 2;
+	}
+	else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4) == GPIO_PIN_SET) //switch = 10
+	{
+		BOARD_NUMBER = 3;
+	}
+	else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4) == GPIO_PIN_RESET) //switch = 11
+	{
+		BOARD_NUMBER = 4;
+	}
 
     __HAL_SPI_ENABLE(&hspi1);
     __HAL_SPI_ENABLE(&hspi3);
@@ -967,7 +991,99 @@ int main(void)
 		}
 		HAL_UART_Transmit(&huart4, "off ", 4, 1000);
 		HAL_Delay(1000);*/
-		SPI2PC();
+
+		if(play_mode == 0)
+		{
+			frame_buf_count = 0;
+			for (int i = 0; i < 6400;  i += 4)
+			{
+				if(static_flag==0)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+3];
+					frame_buf_count += 2;
+				}
+				else if(static_flag==1)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+3];
+					frame_buf_count += 2;
+				}
+			}
+		}
+		else if(play_mode == 1)
+		{
+			if(static_flag==0)
+			{
+				frame_buf_count = 0;
+				for (int i = 0; i < 6400;  i += 4)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+3];
+					frame_buf_count += 2;
+				}
+				HAL_Delay(frame_rate);
+				frame_buf_count = 0;
+				for (int i = 0; i < 6400;  i += 4)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+3];
+					frame_buf_count += 2;
+				}
+				HAL_Delay(frame_rate);
+			}
+			else if(static_flag==1)
+			{
+				frame_buf_count = 0;
+				for (int i = 0; i < 6400;  i += 4)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_0[i+3];
+					frame_buf_count += 2;
+				}
+				HAL_Delay(frame_rate);
+				frame_buf_count = 0;
+				for (int i = 0; i < 6400;  i += 4)
+				{
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+1];
+					frame_buf_count += 2;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+2];
+					frame_buf_count += 4;
+					image_80x80_rgb888[frame_buf_count] = frame_buf_1[i+3];
+					frame_buf_count += 2;
+				}
+				HAL_Delay(frame_rate);
+			}
+		}
+		HAL_SPI_Receive_IT(&hspi3, &spi3_buf, 2);
+
 		//SPI2Flash();
 		/*I2C_Control_Voltage();
 		while (1);*/
@@ -1637,8 +1753,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PE12 */
   GPIO_InitStruct.Pin = GPIO_PIN_12;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE14 */
@@ -1647,6 +1763,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -1807,100 +1927,6 @@ void SPI2Flash() {
 	}*/
 }
 
-void SPI2PC() {
-	uint8_t buf[2] = { 0 };
-	uint8_t frame_buf[6400] = { 0 };
-	int frame_buf_count = 0;
-
-	if (HAL_SPI_Receive(&hspi3, (uint8_t*) buf, 2, 1000) == HAL_OK) {
-		// USB command: Type and command
-		switch (buf[0] & 0b11000000) {
-		case 0b00000000:  //Chain SPI functions
-			switch (buf[0] & 0b00111000) {
-			case 0b00000000: //Write content of full frame buffer to fram buffer (0)
-				break;
-			case 0b00001000: //Write content of full frame buffer to fram buffer (1)
-				break;
-			case 0b00010000: //Write Registers data
-				Write_Registers_data();
-				break;
-			case 0b00011000: //Write partial content of frame buffer
-				break;
-			case 0b00100000: //Read content of full frame buffer to fram buffer (0)
-				break;
-			case 0b00101000: //Read content of full frame buffer to fram buffer (1)
-				break;
-			case 0b00110000: //Read Registers data
-				break;
-			case 0b00111000: //Read partial content of frame buffer
-				break;
-			}
-			break;
-		case 0b01000000:  //Master SPI functions
-			switch (buf[0] & 0b00111000) {
-			case 0b00000000: //Start SPI write data
-				HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf, 6400, 1000);
-				for (int i = 0; i < 6400;  i += 4)
-				{
-					image_80x80_rgb888[frame_buf_count] = frame_buf[i+1];
-					frame_buf_count += 2;
-					image_80x80_rgb888[frame_buf_count] = frame_buf[i];
-					frame_buf_count += 4;
-					image_80x80_rgb888[frame_buf_count] = frame_buf[i+2];
-					frame_buf_count += 4;
-					image_80x80_rgb888[frame_buf_count] = frame_buf[i+3];
-					frame_buf_count += 2;
-				}
-				SPI_master2slave(&buf, &frame_buf);
-				frame_buf_count = 0;
-				break;
-			case 0b00001000: //Continuous write SPI data
-				break;
-			case 0b00010000: //End SPI write data
-				break;
-			case 0b00011000: //Start SPI Read data
-				break;
-			case 0b00100000: //Continuous Read SPI data
-				break;
-			case 0b00101000: //End SPI Read data
-				break;
-			}
-			break;
-		case 0b10000000:  //I2C command
-			switch (buf[0] & 0b00111000) {
-			case 0b00000000: //I2C Write Data
-				break;
-			case 0b00100000: //I2C Read Data
-				break;
-			}
-			break;
-		case 0b11000000:  //SPI flash function & Slave SPI
-			switch (buf[0] & 0b00111000) {
-			case 0b00000000: //Write data to SPI flash
-				break;
-			case 0b00001000: //Read data from SPI flash
-				break;
-			case 0b00100000: //Display Data by Slave SPI
-				break;
-			}
-			break;
-		}
-		// USB command: ID
-		switch (buf[0] & 0b00000111) {
-		case 0b00000000:  //Command for DIP switch ID = 00
-			break;
-		case 0b00000001:  //Command for DIP switch ID = 01
-			break;
-		case 0b00000010:  //Command for DIP switch ID = 10
-			break;
-		case 0b00000011:  //Command for DIP switch ID = 11
-			break;
-		default:  //Broadcast to every board
-			break;
-		}
-	}
-}
-
 void SPI_master2slave(char * buf, char * frame_buf) {
 	HAL_SPI_Transmit(&hspi1, &buf[0], 1, 1000);
 	HAL_SPI_Transmit(&hspi1, &buf[1], 1, 1000);
@@ -2052,6 +2078,214 @@ void delay_us(int time)
 			;
 	}
 }
+
+int button_count=0;
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin==GPIO_PIN_12)
+	{
+		button_count++;
+		HAL_Delay(100);
+		for(int i=0; i<200; i++)
+		{
+			if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_12) == GPIO_PIN_RESET)
+			{
+				if(button_count<50 && play_mode==0)
+				{
+					if(static_flag==0)
+					{
+						static_flag = 1;
+					}
+					else if(static_flag==1)
+					{
+						static_flag = 0;
+					}
+				}
+				button_count = 0;
+				return;
+			}
+			button_count++;
+			HAL_Delay(10);
+		}
+		if(play_mode==1)
+		{
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
+			play_mode = 0;
+		}
+		else if(play_mode==0)
+		{
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
+			play_mode = 1;
+		}
+		button_count = 0;
+	}
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+	// USB command: Type and command
+	switch (spi3_buf[0] & 0b11000000) {
+	case 0b00000000:  //Chain SPI functions
+		switch (spi3_buf[0] & 0b00111000) {
+		case 0b00000000: //Write content of full frame buffer to fram buffer (0)
+			switch (spi3_buf[0] & 0b00000111) {
+			case 0b00000000: //Command for DIP switch ID = 00
+				break;
+			case 0b00000001: //Command for DIP switch ID = 01
+				if(BOARD_NUMBER==2)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_0, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_0);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			case 0b00000010: //Command for DIP switch ID = 10
+				if(BOARD_NUMBER==3)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_0, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_0);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			case 0b00000011: //Command for DIP switch ID = 11
+				if(BOARD_NUMBER==4)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_0, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_0);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			default: //Broadcast to every board
+				HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_0, 6400, 1000);
+				SPI_master2slave(&spi3_buf, &frame_buf_0);
+				break;
+			}
+			break;
+		case 0b00001000: //Write content of full frame buffer to fram buffer (1)
+			switch (spi3_buf[0] & 0b00000111) {
+			case 0b00000000: //Command for DIP switch ID = 00
+				break;
+			case 0b00000001: //Command for DIP switch ID = 01
+				if(BOARD_NUMBER==2)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_1, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_1);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			case 0b00000010: //Command for DIP switch ID = 10
+				if(BOARD_NUMBER==3)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_1, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_1);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			case 0b00000011: //Command for DIP switch ID = 11
+				if(BOARD_NUMBER==4)
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_1, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_1);
+				}
+				else
+				{
+					HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_tmp, 6400, 1000);
+					SPI_master2slave(&spi3_buf, &frame_buf_tmp);
+				}
+				break;
+			default: //Broadcast to every board
+				HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_1, 6400, 1000);
+				SPI_master2slave(&spi3_buf, &frame_buf_1);
+				break;
+			}
+			break;
+		case 0b00010000: //Write Registers data
+			Write_Registers_data();
+			break;
+		case 0b00011000: //Write partial content of frame buffer
+			break;
+		case 0b00100000: //Read content of full frame buffer to fram buffer (0)
+			break;
+		case 0b00101000: //Read content of full frame buffer to fram buffer (1)
+			break;
+		case 0b00110000: //Read Registers data
+			break;
+		case 0b00111000: //Read partial content of frame buffer
+			break;
+		}
+		break;
+	case 0b01000000:  //Master SPI functions
+		switch (spi3_buf[0] & 0b00111000) {
+		case 0b00000000: //Start SPI write data
+			HAL_SPI_Receive(&hspi3, (uint8_t*) frame_buf_0, 6400, 1000);
+			SPI_master2slave(&spi3_buf, &frame_buf_0);
+			break;
+		case 0b00001000: //Continuous write SPI data
+			break;
+		case 0b00010000: //End SPI write data
+			break;
+		case 0b00011000: //Start SPI Read data
+			break;
+		case 0b00100000: //Continuous Read SPI data
+			break;
+		case 0b00101000: //End SPI Read data
+			break;
+		}
+		break;
+	case 0b10000000:  //I2C command
+		switch (spi3_buf[0] & 0b00111000) {
+		case 0b00000000: //I2C Write Data
+			break;
+		case 0b00100000: //I2C Read Data
+			break;
+		}
+		break;
+	case 0b11000000:  //SPI flash function & Slave SPI
+		switch (spi3_buf[0] & 0b00111000) {
+		case 0b00000000: //Write data to SPI flash
+			break;
+		case 0b00001000: //Read data from SPI flash
+			break;
+		case 0b00100000: //Display Data by Slave SPI
+			break;
+		}
+		break;
+	}
+	// USB command: ID
+	switch (spi3_buf[0] & 0b00000111) {
+	case 0b00000000:  //Command for DIP switch ID = 00
+		break;
+	case 0b00000001:  //Command for DIP switch ID = 01
+		break;
+	case 0b00000010:  //Command for DIP switch ID = 10
+		break;
+	case 0b00000011:  //Command for DIP switch ID = 11
+		break;
+	default:  //Broadcast to every board
+		break;
+	}
+}
+
 /* USER CODE END 4 */
 
 /**
@@ -2084,3 +2318,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+

@@ -57,6 +57,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define flash_cs_Pin GPIO_PIN_11
+#define flash_cs_GPIO_Port GPIOC
+#define flash_mosi_Pin GPIO_PIN_8
+#define flash_mosi_GPIO_Port GPIOF
+#define flash_clk_Pin GPIO_PIN_10
+#define flash_clk_GPIO_Port GPIOF
+#define flash_miso_Pin GPIO_PIN_9
+#define flash_miso_GPIO_Port GPIOF
 
 /* USER CODE BEGIN Private defines */
 
